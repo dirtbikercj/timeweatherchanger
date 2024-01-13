@@ -1,7 +1,9 @@
 ﻿using Aki.Reflection.Utils;
 using BepInEx;
+using BepInEx.Bootstrap;
 using BepInEx.Configuration;
 using Comfort.Common;
+using DrakiaXYZ.VersionChecker;
 using EFT;
 using EFT.Communications;
 using EFT.Console.Core;
@@ -16,9 +18,11 @@ using Random = UnityEngine.Random;
 
 namespace SamSWAT.TimeWeatherChanger
 {
-    [BepInPlugin("com.samswat.timeweatherchanger", "SamSWAT.TimeWeatherChanger", "2.3.1")]
+    [BepInPlugin("com.samswat.timeweatherchanger", "SamSWAT.TimeWeatherChanger", "2.3.2")]
     public class TimeWeatherPlugin : BaseUnityPlugin
     {
+        public const int TarkovVersion = 26535;
+
         internal static ConfigEntry<KeyboardShortcut> TogglePanel;
 
         private static GameObject input;
@@ -52,6 +56,11 @@ namespace SamSWAT.TimeWeatherChanger
 
         public void Awake()
         {
+            if (!VersionChecker.CheckEftVersion(Logger, Info, Config))
+            {
+                throw new Exception("Invalid EFT Version");
+            }
+
             //Getting type responsible for time in the current world for later use
             gameDateTime = PatchConstants.EftTypes.Single(x => x.GetMethod("CalculateTaxonomyDate") != null);
             calculateTime = gameDateTime.GetMethod("Calculate", BindingFlags.Public | BindingFlags.Instance);
@@ -110,8 +119,19 @@ namespace SamSWAT.TimeWeatherChanger
             }
         }
 
+        private bool _warned = false;
+
         public void Update()
         {
+            if (Chainloader.PluginInfos.ContainsKey("DJ.RaidOverhaul") && PreloaderUI.Instantiated && _warned == false)
+            {
+                if (GameObject.Find("ErrorScreen"))
+                    PreloaderUI.Instance.CloseErrorScreen();
+
+                PreloaderUI.Instance.ShowErrorScreen("Time & Weather Changer Error", "Time & Weather changer is not compatible with DJ's Raid Overhaul. Issues will occur.");
+                _warned = true;
+            }
+
             if (Input.GetKeyDown(TogglePanel.Value.MainKey))
             {
                 //Obtaining current GameWorld for later time change
